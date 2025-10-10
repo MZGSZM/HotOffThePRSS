@@ -7,7 +7,7 @@ A basic bot to fetch RSS feeds and send them to a Discord channel via webhooks. 
 <img src="https://github.com/ReverendRetro/SimpleDiscordRSS/blob/main/s2.png?raw=true">
 
 Comprehensive Web Interface
-- Complete Feed Management: A secure, password-protected web UI to add, edit, and delete feeds from any browser on your network.
+- Complete Feed Management: A secure, password-protected web UI to add, edit, and delete feeds from any browser.
 - Secure Admin Login: On first run, the app prompts you to create a secure admin account. The password is automatically salted and hashed, never stored in plaintext.
 
 Advanced Feed & Post Configuration
@@ -18,7 +18,7 @@ Advanced Feed & Post Configuration
 
 Intelligent & Reliable Fetching
 
-- 24-Hour Rolling Window: The bot will only ever consider articles published within the last 24 hours, completely preventing accidental posts of old content.
+- 24-Hour Rolling Window: The bot will only ever consider articles published within the last 24 hours, preventing accidental posts of old content.
 - Smart Initial Check: On its first check of a new feed, the bot posts only the single most recent article and silently adds all other recent articles to its memory, preventing an initial flood of old posts.
 - Stateful Memory: Remembers which articles have already been posted to prevent duplicates, even after a restart.
 - Automatic Memory Pruning: The list of sent articles is automatically capped at the 10,000 most recent entries to prevent the log file from growing indefinitely.
