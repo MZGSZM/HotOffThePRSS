@@ -206,59 +206,59 @@ The scheduler log should show "Scheduler started." and "Scheduler running check.
 ## 8. Usage
 Once both services are running, you can manage the bot entirely through its web interface.
 
-1. First-Time Setup & Login
+### 1. First-Time Setup & Login
 
-    Create Admin Account: Navigate to http://<your_server_ip>:5000 in your web browser. On your first visit, you will be prompted to create a secure admin account with a username and password.
+Create Admin Account: Navigate to http://<your_server_ip>:5000 in your web browser. On your first visit, you will be prompted to create a secure admin account with a username and password.
 
-    Login: After creating the account, you will be taken to the login page. Use your new credentials to log into the control panel. On all future visits, you will be required to log in to access the dashboard.
+Login: After creating the account, you will be taken to the login page. Use your new credentials to log into the control panel. On all future visits, you will be required to log in to access the dashboard.
 
-2. Viewing Your Feeds
+### 2. Viewing Your Feeds
 
 The main page provides a complete overview of all your configured RSS feeds.
 
-  Feed Status: Shows the live HTTP status code from the last time the feed was checked. It's color-coded for easy diagnosis:
+Feed Status: Shows the live HTTP status code from the last time the feed was checked. It's color-coded for easy diagnosis:
 
-  Green (2xx): The feed is healthy and accessible.
+Green (2xx): The feed is healthy and accessible.
 
-  Yellow (3xx): The feed has been redirected. It's working, but you may want to update the URL.
+Yellow (3xx): The feed has been redirected. It's working, but you may want to update the URL.
 
-  Red (4xx/5xx): There is an error. The feed might be broken (404 Not Found) or the server might be down.
+Red (4xx/5xx): There is an error. The feed might be broken (404 Not Found) or the server might be down.
 
-  Last Post Status: Displays the result of the last attempt to post an article, along with a relative timestamp (e.g., "about a minute ago").
+Last Post Status: Displays the result of the last attempt to post an article, along with a relative timestamp (e.g., "about a minute ago").
 
-  RSS Name: The custom name you've given the feed for easy identification.
+RSS Name: The custom name you've given the feed for easy identification.
 
-  Webhook Destinations: Shows the custom labels you've assigned to each webhook URL, so you know exactly which servers and channels the feed is posting to.
+Webhook Destinations: Shows the custom labels you've assigned to each webhook URL, so you know exactly which servers and channels the feed is posting to.
 
-3. Adding and Editing Feeds
+### 3. Adding and Editing Feeds
 
 Add a New Feed:
 
-  Click the "Add New Feed" button.
+Click the "Add New Feed" button.
 
-  Fill in the form:
+Fill in the form:
 
-  RSS Name: A friendly name for the feed (e.g., "Cybersecurity News").
+RSS Name: A friendly name for the feed (e.g., "Cybersecurity News").
 
-  RSS Feed URL: The direct URL of the RSS/Atom feed.
+RSS Feed URL: The direct URL of the RSS/Atom feed.
 
-  Discord Webhook Destinations: Click the "+" button to add one or more webhook rows. For each row, provide:
+Discord Webhook Destinations: Click the "+" button to add one or more webhook rows. For each row, provide:
 
-  The Webhook URL you copied from your Discord channel.
+The Webhook URL you copied from your Discord channel.
 
-  An optional Label to describe the destination (e.g., "Tech Server - #alerts").
+An optional Label to describe the destination (e.g., "Tech Server - #alerts").
 
-  Refresh Interval: How often (in seconds) the bot should check for new articles.
+Refresh Interval: How often (in seconds) the bot should check for new articles.
 
-  Edit a Feed: Click the "Edit" link next to any feed to modify its settings, including adding or removing webhook destinations.
+Edit a Feed: Click the "Edit" link next to any feed to modify its settings, including adding or removing webhook destinations.
 
-4. Backup and Restore
+### 4. Backup and Restore
 
-   Navigate to the "Backup / Restore" page.
+Navigate to the "Backup / Restore" page.
 
-   Download Backup: Click the button to save a complete config.json file of all your current feeds.
+Download Backup: Click the button to save a complete config.json file of all your current feeds.
 
-   Restore from Backup: Upload a previously saved config.json file to instantly restore your configuration. This will overwrite your existing feeds.
+Restore from Backup: Upload a previously saved config.json file to instantly restore your configuration. This will overwrite your existing feeds.
 
 # Configuration Files
 The bot automatically creates and manages the configuration files in the directory it is created. No manual input required.
