@@ -1,33 +1,42 @@
-# SimpleDiscordRSS
+# SimpleDiscordRSS V2
+Backup your config before upgrading to V2! You can use the bash script to convert your backup into one that will be supported in the V2 update!
+
 A basic bot to fetch RSS feeds and send them to a Discord channel via webhooks. No limit on feeds, channels, or servers. Easy to self host at home or on a remote server. Just a Simple Discord RSS Bot with intuitive Web UI. Links sent to Discord are Rich Embeds so they look nice.
 
-A lightweight, self-hostable Discord bot that fetches RSS Atom feeds and posts new entries to your server using webhooks. It comes with a simple, clean web interface for easy management. Requires an admin account stored locally with a salted and hashed password.
+A lightweight, self-hostable Discord bot that fetches RSS Atom feeds and posts new entries to your server using webhooks. It comes with a simple, clean web interface for easy management. Requires an admin account stored locally with a salted and hashed password that is setup on first connect.
 
-<img src="https://github.com/ReverendRetro/SimpleDiscordRSS/blob/main/MainPage-2.png?raw=true"> 
+<img src="https://github.com/ReverendRetro/SimpleDiscordRSS/blob/main/s1.png?raw=true">
+<img src="https://github.com/ReverendRetro/SimpleDiscordRSS/blob/main/s2.png?raw=true">
 
-# Features
+Comprehensive Web Interface
+- Complete Feed Management: A secure, password-protected web UI to add, edit, and delete feeds from any browser on your network.
+- Secure Admin Login: On first run, the app prompts you to create a secure admin account. The password is automatically salted and hashed, never stored in plaintext.
 
-- Webhook-Based: Uses Discord webhooks for posting, eliminating the need for bot tokens and complex permissions.
+Advanced Feed & Post Configuration
+- Multi-Webhook Destinations: Send a single RSS feed to multiple Discord channels or servers by adding multiple webhook URLs, each with its own custom label for easy identification (e.g., "Gaming Server - #news").
+- Rich Embeds: New articles are posted as clean, professional-looking Discord embeds, not plain text links.
+- Custom Naming: Assign a custom "RSS Name" to each feed, making it easy to manage a large list.
+- Per-Feed Refresh Rates: Set a unique update interval (in seconds) for each individual feed.
 
-- Web Interface: A simple, multi-page web UI to add, view, and delete feeds from any browser on your network.
+Intelligent & Reliable Fetching
 
-- Per-Feed Configuration: Set custom update intervals for each individual feed.
+- 24-Hour Rolling Window: The bot will only ever consider articles published within the last 24 hours, completely preventing accidental posts of old content.
+- Smart Initial Check: On its first check of a new feed, the bot posts only the single most recent article and silently adds all other recent articles to its memory, preventing an initial flood of old posts.
+- Stateful Memory: Remembers which articles have already been posted to prevent duplicates, even after a restart.
+- Automatic Memory Pruning: The list of sent articles is automatically capped at the 10,000 most recent entries to prevent the log file from growing indefinitely.
 
-- Initial Post on Add: Immediately fetches and posts the single latest article when a new feed is added to confirm it's working. (Only if latest feed was posted within the past 24 hours)
+Monitoring & Administration
+-  Live HTTP Status Codes: The web UI displays the live HTTP status code (200, 404, 301, etc.) for each feed, color-coded for at-a-glance health checks.
+-  Last Post Status: See the status of the last post attempt for each feed (e.g., "Success," "Rate Limited," "Failed"), along with a timestamp.
+-  Backup & Restore: Easily download a complete JSON backup of your feed configuration and restore it via the web interface.
 
-- Stateful: Remembers which articles have already been posted to prevent duplicates, even after a restart.
+Stable & Efficient Architecture
+-  Webhook-Based: Uses Discord webhooks for posting, eliminating the need for bot tokens and complex permissions.
+-  Separated Services: The web UI and the background scheduler run as two separate, independent services, ensuring maximum stability.
+-  Lightweight: Built with Python and Flask, designed to run efficiently on low-power hardware like a Raspberry Pi or a small VPS.
+-  Easy to Deploy: Includes systemd service files for easy setup as a persistent, auto-starting service on Linux.
 
-- Lightweight & Efficient: Built with Python and Flask, designed to run efficiently on low-power hardware like a Raspberry Pi or a small VPS.
-
-- Easy to Deploy: Can be run directly with Python or as a persistent service using Gunicorn and systemd.
-
-- Naming Feeds: Set the name for a feed to keep track of the channel and server it belongs to.
-
-- Backups: Export a JSON with your feeds to import into the bot elsewhere, or recover in a disaster scenario.
-
-- Secure Login: The file with the admin username and password salts and hashes the password so it is not plaintext.
-
-# Requirements
+# Requirements (DOCKER STEPS SOON)
 
 - A Linux server (e.g., Debian, Ubuntu) or a local machine for hosting. Also should work on Windows and MacOS but I have no way of testing there.
 
@@ -197,21 +206,61 @@ sudo journalctl -u discord-rss-web -n 50 --no-pager
 The scheduler log should show "Scheduler started." and "Scheduler running check..." messages.
 
 ## 8. Usage
-Once the services are running, navigate to http://<your_server_ip>:5000 in your web browser.
+Once both services are running, you can manage the bot entirely through its web interface.
 
-- View Feeds: The main page lists all currently configured RSS feeds.
+1. First-Time Setup & Login
 
-- Add New Feed: Click "Add New Feed" to go to the form.
+    Create Admin Account: Navigate to http://<your_server_ip>:5000 in your web browser. On your first visit, you will be prompted to create a secure admin account with a username and password.
 
-- RSS Feed URL: The URL of the RSS/Atom feed you want to monitor.
+    Login: After creating the account, you will be taken to the login page. Use your new credentials to log into the control panel. On all future visits, you will be required to log in to access the dashboard.
 
-- Discord Webhook URL: The webhook URL you copied from your Discord channel settings.
+2. Viewing Your Feeds
 
-- Refresh Interval: How often (in seconds) the bot should check for new articles.
+The main page provides a complete overview of all your configured RSS feeds.
 
-- Edit Feed: Click the "Edit" link next to any feed to modify its settings.
+  Feed Status: Shows the live HTTP status code from the last time the feed was checked. It's color-coded for easy diagnosis:
 
-- The scheduler will automatically pick up any new or edited feeds on its next cycle (within 60 seconds).
+  Green (2xx): The feed is healthy and accessible.
+
+  Yellow (3xx): The feed has been redirected. It's working, but you may want to update the URL.
+
+  Red (4xx/5xx): There is an error. The feed might be broken (404 Not Found) or the server might be down.
+
+  Last Post Status: Displays the result of the last attempt to post an article, along with a relative timestamp (e.g., "about a minute ago").
+
+  RSS Name: The custom name you've given the feed for easy identification.
+
+  Webhook Destinations: Shows the custom labels you've assigned to each webhook URL, so you know exactly which servers and channels the feed is posting to.
+
+3. Adding and Editing Feeds
+
+Add a New Feed:
+
+  Click the "Add New Feed" button.
+
+  Fill in the form:
+
+  RSS Name: A friendly name for the feed (e.g., "Cybersecurity News").
+
+  RSS Feed URL: The direct URL of the RSS/Atom feed.
+
+  Discord Webhook Destinations: Click the "+" button to add one or more webhook rows. For each row, provide:
+
+  The Webhook URL you copied from your Discord channel.
+
+  An optional Label to describe the destination (e.g., "Tech Server - #alerts").
+
+  Refresh Interval: How often (in seconds) the bot should check for new articles.
+
+  Edit a Feed: Click the "Edit" link next to any feed to modify its settings, including adding or removing webhook destinations.
+
+4. Backup and Restore
+
+   Navigate to the "Backup / Restore" page.
+
+   Download Backup: Click the button to save a complete config.json file of all your current feeds.
+
+   Restore from Backup: Upload a previously saved config.json file to instantly restore your configuration. This will overwrite your existing feeds.
 
 # Configuration Files
 The bot automatically creates and manages the configuration files in the directory it is created. No manual input required.
