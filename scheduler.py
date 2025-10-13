@@ -7,6 +7,7 @@ import json
 import yaml
 import time
 import uuid
+import fcntl
 import feedparser
 import requests
 from datetime import datetime, timedelta, timezone
@@ -29,18 +30,6 @@ def load_config():
     except (FileNotFoundError, json.JSONDecodeError):
         return {"FEEDS": []}
 
-def load_sent_articles():
-    try:
-        with open(SENT_ARTICLES_FILE, 'r') as f:
-            return set(yaml.safe_load(f) or [])
-    except FileNotFoundError:
-        return set()
-
-def save_sent_articles(sent_ids):
-    # Prune the list to the 10,000 most recent entries to prevent infinite growth
-    with open(SENT_ARTICLES_FILE, 'w') as f:
-        yaml.dump(list(sent_ids)[-10000:], f)
-
 def load_feed_state():
     try:
         with open(FEED_STATE_FILE, 'r') as f:
@@ -54,6 +43,56 @@ def save_feed_state(state_data):
     with open(FEED_STATE_FILE, 'w') as f:
         json.dump(state_data, f, indent=4)
 
+def filter_and_update_sent_articles(article_ids_to_check):
+    """
+    Atomically checks which articles are new and updates the sent articles file.
+    This is the core fix for the race condition.
+    Returns a set of article IDs that are genuinely new.
+    """
+    new_article_ids = set()
+    try:
+        with open(SENT_ARTICLES_FILE, 'r+') as f:
+            # Acquire an exclusive lock, preventing any other process from reading or writing
+            fcntl.flock(f, fcntl.LOCK_EX)
+            
+            # Read the existing sent articles
+            sent_articles_list = yaml.safe_load(f) or []
+            sent_articles_set = set(sent_articles_list)
+            
+            # Determine which of the provided articles are new
+            genuinely_new_ids = set(article_ids_to_check) - sent_articles_set
+            
+            if genuinely_new_ids:
+                # Add the new IDs to the set and convert back to a list
+                updated_sent_articles_set = sent_articles_set.union(genuinely_new_ids)
+                
+                # Prune the list to the 10,000 most recent entries
+                updated_sent_articles_list = sorted(list(updated_sent_articles_set))[-10000:]
+                
+                # Go back to the beginning of the file, clear it, and write the new list
+                f.seek(0)
+                f.truncate()
+                yaml.dump(updated_sent_articles_list, f)
+                
+                new_article_ids = genuinely_new_ids
+
+            # Release the lock
+            fcntl.flock(f, fcntl.LOCK_UN)
+            
+    except FileNotFoundError:
+        # If the file doesn't exist, all articles are new
+        with open(SENT_ARTICLES_FILE, 'w') as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            updated_sent_articles_list = sorted(list(article_ids_to_check))[-10000:]
+            yaml.dump(updated_sent_articles_list, f)
+            fcntl.flock(f, fcntl.LOCK_UN)
+        new_article_ids = set(article_ids_to_check)
+    except Exception as e:
+        print(f"Error in filter_and_update_sent_articles: {e}")
+
+    return new_article_ids
+
+
 # --- Core Logic ---
 
 def send_to_webhook(webhook_url, embed):
@@ -65,7 +104,7 @@ def send_to_webhook(webhook_url, embed):
         if response.status_code in [200, 204]:
             return "Success"
         elif response.status_code == 429:
-            print(f"Rate limited by Discord for webhook {webhook_url}. Retrying...")
+            print(f"Rate limited by Discord for webhook {webhook_url}.")
             return "Rate Limited"
         else:
             print(f"Error sending to webhook {webhook_url}: {response.status_code} - {response.text}")
@@ -74,7 +113,7 @@ def send_to_webhook(webhook_url, embed):
         print(f"Failed to connect to webhook {webhook_url}: {e}")
         return "Failed to Connect"
 
-def check_single_feed(feed_config, sent_articles):
+def check_single_feed(feed_config):
     """Checks a single feed for new articles and posts them."""
     feed_url = feed_config.get("url")
     feed_id = feed_config.get("id")
@@ -88,12 +127,11 @@ def check_single_feed(feed_config, sent_articles):
     if not feed_data.entries:
         if status_code != 200:
             print(f"Could not fetch feed: {feed_url} (Status: {status_code})")
-        return [], status_code, last_post_status
+        return status_code, last_post_status
 
     now = datetime.now(timezone.utc)
     twenty_four_hours_ago = now - timedelta(hours=24)
     
-    # Filter articles published within the last 24 hours
     recent_articles = []
     for entry in feed_data.entries:
         published_time = entry.get('published_parsed')
@@ -103,75 +141,58 @@ def check_single_feed(feed_config, sent_articles):
                 recent_articles.append(entry)
 
     if not recent_articles:
-        return [], status_code, last_post_status
+        return status_code, last_post_status
 
-    # Sort to ensure the newest is first
     recent_articles.sort(key=lambda x: x.get('published_parsed', (0,)*9), reverse=True)
     
-    # Check if this feed has ever been checked before
+    article_id_map = {
+        (entry.get('id') or entry.get('link')): entry
+        for entry in recent_articles if (entry.get('id') or entry.get('link'))
+    }
+    
     feed_state = load_feed_state()
     is_initial_check = feed_id not in feed_state
     
-    new_articles_to_post = []
     if is_initial_check:
-        # On first check, only post the single newest article
-        newest_article = recent_articles[0]
-        new_articles_to_post.append(newest_article)
+        # On first check, we only want to post the single latest article
+        # but we need to seed the memory with ALL recent articles.
+        all_recent_ids = list(article_id_map.keys())
+        filter_and_update_sent_articles(all_recent_ids)
         
-        # Then, silently add all other recent articles to memory to prevent them from being posted
-        for article in recent_articles:
-            article_id = article.get('id') or article.get('link')
-            if article_id:
-                sent_articles.add(article_id)
-        print(f"Initial check for '{feed_url}'. Seeding memory with {len(recent_articles)} articles and posting 1.")
+        # We now know only the latest should be posted.
+        articles_to_post = [recent_articles[0]] if recent_articles else []
+        print(f"Initial check for '{feed_url}'. Seeding memory and posting 1 newest article.")
     else:
-        # On subsequent checks, find all articles not in memory
-        for entry in recent_articles:
-            article_id = entry.get('id') or entry.get('link')
-            if article_id and article_id not in sent_articles:
-                new_articles_to_post.append(entry)
-
+        # On subsequent checks, let the atomic function figure out what's new
+        newly_found_ids = filter_and_update_sent_articles(list(article_id_map.keys()))
+        articles_to_post = [article_id_map[id] for id in newly_found_ids]
+        
     # Post the new articles
-    posted_ids = []
-    for entry in reversed(new_articles_to_post): # Post oldest first
-        article_id = entry.get('id') or entry.get('link')
-        if not article_id: continue
-        
-        title = entry.get('title', 'No Title')
-        link = entry.get('link', '')
-        summary = entry.get('summary', 'No summary available.')
-        
-        # Clean up summary (basic HTML tag removal)
-        import re
-        summary = re.sub('<[^<]+?>', '', summary)
-        summary = summary.strip()
-        if len(summary) > 250:
-            summary = summary[:247] + "..."
+    if articles_to_post:
+        # Sort them by date to post oldest-new first
+        articles_to_post.sort(key=lambda x: x.get('published_parsed', (0,)*9))
+        for entry in articles_to_post:
+            title = entry.get('title', 'No Title')
+            link = entry.get('link', '')
+            summary = entry.get('summary', 'No summary available.')
+            
+            import re
+            summary = re.sub('<[^<]+?>', '', summary).strip()
+            if len(summary) > 250:
+                summary = summary[:247] + "..."
 
-        embed = {
-            "title": title,
-            "url": link,
-            "description": summary,
-            "color": 5814783, # A nice blue color
-            "footer": {"text": f"From: {feed_config.get('name', feed_url)}"}
-        }
+            embed = {
+                "title": title, "url": link, "description": summary, "color": 5814783,
+                "footer": {"text": f"From: {feed_config.get('name', feed_url)}"}
+            }
 
-        # Handle different webhook structures for backward compatibility
-        webhooks = feed_config.get('webhooks', [])
-        if not webhooks and 'webhook_url' in feed_config: # Legacy single URL
-            webhooks = [{"url": feed_config['webhook_url'], "label": ""}]
-        
-        for webhook in webhooks:
-            webhook_url = webhook.get("url")
-            if webhook_url:
-                post_status = send_to_webhook(webhook_url, embed)
-                # Keep track of the status of the last attempt
-                last_post_status = post_status
-
-        # Mark as posted only after attempting all webhooks for it
-        posted_ids.append(article_id)
-
-    return posted_ids, status_code, last_post_status
+            webhooks = feed_config.get('webhooks', [])
+            for webhook in webhooks:
+                webhook_url = webhook.get("url")
+                if webhook_url:
+                    last_post_status = send_to_webhook(webhook_url, embed)
+    
+    return status_code, last_post_status
 
 # --- Main Scheduler Class ---
 
@@ -184,10 +205,8 @@ class FeedScheduler:
         while True:
             print("Scheduler running check...")
             config = load_config()
-            sent_articles = load_sent_articles()
             feed_state = load_feed_state()
             now = datetime.now(timezone.utc)
-            state_changed = False
             
             for feed_config in config.get("FEEDS", []):
                 feed_id = feed_config.get("id")
@@ -205,39 +224,30 @@ class FeedScheduler:
                 if should_check:
                     print(f"Checking feed: {feed_config.get('url')}")
                     
-                    # Ensure the state dict for this feed exists
                     if feed_id not in feed_state:
                         feed_state[feed_id] = {}
 
                     try:
-                        newly_posted_ids, status_code, last_post_status = check_single_feed(feed_config, sent_articles)
+                        status_code, last_post_status = check_single_feed(feed_config)
                         
                         feed_state[feed_id]['status_code'] = status_code
                         feed_state[feed_id]['last_checked'] = now.isoformat()
                         
-                        # If a post was attempted, record its status
                         if last_post_status:
                             feed_state[feed_id]['last_post'] = {
                                 "status": last_post_status,
                                 "timestamp": now.isoformat()
                             }
-
-                        if newly_posted_ids:
-                            sent_articles.update(newly_posted_ids)
-                            save_sent_articles(sent_articles)
                         
-                        state_changed = True
+                        save_feed_state(feed_state)
                     except Exception as e:
                         print(f"An unexpected error occurred while checking feed {feed_config.get('url')}: {e}")
                     
-                    # Add a small delay between processing feeds to be gentler on resources
-                    time.sleep(2) 
+                    time.sleep(2)
             
-            if state_changed:
-                save_feed_state(feed_state)
-
             time.sleep(self.interval)
 
 if __name__ == "__main__":
+    # This main guard is mostly for direct testing, not for production with systemd
     scheduler = FeedScheduler()
     scheduler.run()
