@@ -1,4 +1,4 @@
-# SimpleDiscordRSS V2
+# Hot Off The PRSS
 Backup your config before upgrading to V2! You can use the bash script to convert your backup into one that will be supported in the V2 update!
 
 A basic bot to fetch RSS feeds and send them to a Discord channel via webhooks. No limit on feeds, channels, or servers. Easy to self host at home or on a remote server. Just a Simple Discord RSS Bot with intuitive Web UI. Links sent to Discord are Rich Embeds so they look nice.
