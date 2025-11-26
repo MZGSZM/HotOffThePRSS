@@ -4,33 +4,64 @@ A pair of Python files to fetch RSS feeds and send them to a Discord channel via
 <img src="https://raw.githubusercontent.com/NullAngst/HotOffThePRSS/refs/heads/main/dark.png?raw=true">
 <img src="https://raw.githubusercontent.com/NullAngst/HotOffThePRSS/refs/heads/main/light.png?raw=true">
 
-Comprehensive Web Interface
-- Complete Feed Management: A secure, password-protected web UI to add, edit, and delete feeds from any browser.
-- Secure Admin Login: On first run, the app prompts you to create a secure admin account. The password is automatically salted and hashed, never stored in plaintext.
+# Features
 
-Advanced Feed & Post Configuration
-- Multi-Webhook Destinations: Send a single RSS feed to multiple Discord channels or servers by adding multiple webhook URLs, each with its own custom label for easy identification (e.g., "Gaming Server - #news").
-- Rich Embeds: New articles are posted as clean, professional-looking Discord embeds, not plain text links.
-- Custom Naming: Assign a custom "RSS Name" to each feed, making it easy to manage a large list.
-- Per-Feed Refresh Rates: Set a unique update interval (in seconds) for each individual feed.
+### Comprehensive Web Interface
 
-Intelligent & Reliable Fetching
+- Modern Dashboard: A sleek, responsive web UI built with Tailwind CSS, featuring a dark/light mode toggle for comfortable viewing in any environment.
 
-- 24-Hour Rolling Window: The bot will only ever consider articles published within the last 24 hours, preventing accidental posts of old content.
-- Smart Initial Check: On its first check of a new feed, the bot posts only the single most recent article and silently adds all other recent articles to its memory, preventing an initial flood of old posts.
-- Stateful Memory: Remembers which articles have already been posted to prevent duplicates, even after a restart.
-- Automatic Memory Pruning: The list of sent articles is automatically capped at the 10,000 most recent entries to prevent the log file from growing indefinitely.
+- Complete Feed Management: Add, edit, pause, force-check, and delete feeds directly from your browser.
 
-Monitoring & Administration
--  Live HTTP Status Codes: The web UI displays the live HTTP status code (200, 404, 301, etc.) for each feed, color-coded for at-a-glance health checks.
--  Last Post Status: See the status of the last post attempt for each feed (e.g., "Success," "Rate Limited," "Failed"), along with a timestamp.
--  Backup & Restore: Easily download a complete JSON backup of your feed configuration and restore it via the web interface.
+- Secure Admin Login: The app prompts you to create a secure Owner account on first run. All passwords are automatically salted and hashed using scrypt.
 
-Stable & Efficient Architecture
--  Webhook-Based: Uses Discord webhooks for posting, eliminating the need for bot tokens and complex permissions.
--  Separated Services: The web UI and the background scheduler run as two separate, independent services, ensuring maximum stability.
--  Lightweight: Built with Python and Flask, designed to run efficiently on low-power hardware like a Raspberry Pi or a small VPS.
--  Easy to Deploy: Includes systemd service files for easy setup as a persistent, auto-starting service on Linux.
+### Advanced Role-Based Access Control (RBAC)
+
+- Owner: Full control over the entire system. Can manage feeds, create/delete users, reset any password, promote/demote users, and access full system backups.
+
+- Super Admin: Can manage feeds and perform user management for standard Admins (create, delete, reset password). Cannot modify the Owner or other Super Admins.
+
+- Admin: Can add, edit, and manage RSS feeds but has no access to user management or sensitive system backups.
+
+### Powerful Feed Configuration
+
+- Multi-Webhook Destinations: Send a single RSS feed to multiple Discord channels or servers simultaneously. Each destination gets its own custom label (e.g., "Gaming Server - #news").
+
+- Pause & Resume: Temporarily stop a feed from checking without deleting it. Perfect for maintenance or quieting a spammy source.
+
+- Force Check: Instantly trigger a feed check from the dashboard to verify new configurations or test connectivity.
+
+- Rich Embeds: Articles are posted as clean, professional Discord embeds rather than plain text links.
+
+- Custom Intervals: Set a unique update interval (in seconds) for each individual feed.
+
+### Intelligent & Reliable Fetching
+
+- Per-Webhook Memory: The bot tracks sent articles individually for each webhook. This ensures that if you add a new destination to an existing feed, the new channel will receive posts without causing duplicates in the old ones.
+
+- 24-Hour Rolling Window: The bot only considers articles published within the last 24 hours, preventing accidental floods of old content.
+
+- Smart Initial Check: When a new feed is added, the bot silently seeds its memory with all recent articles. It will only post new content published after that moment, preventing an initial spam storm.
+
+- Atomic State Management: Uses robust file locking and atomic write operations to prevent race conditions and duplicate posts, even under high load.
+
+### Monitoring & Administration
+- Live Status Badges: Dashboard shows color-coded status badges for every feed (Green for OK, Red for Error, Grey for Paused).
+
+- Detailed Stats: At-a-glance cards show total feeds, active vs. paused webhooks, and error counts.
+
+-  Full Backup & Restore:
+   Config Backup: Download/restore your config.json to save your feed list.
+   User DB Backup: (Owner only) Download/restore the encrypted user.json database to migrate accounts and passwords safely.
+
+### Stable & Efficient Architecture
+
+- Webhook-Based: Uses Discord webhooks for posting, eliminating the need for bot tokens and complex permissions.
+
+- Separated Services: The web UI and the background scheduler run as two separate, independent processes for maximum stability.
+
+- Docker Ready: Fully containerized with a production-ready Dockerfile and docker-compose.yml, using Gunicorn for the web server.
+
+- Lightweight: Built with Python and Flask, designed to run efficiently on low-power hardware like a Raspberry Pi or a small VPS.
 
 # Requirements (DOCKER STEPS SOON)
 
